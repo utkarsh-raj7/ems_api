@@ -1,19 +1,17 @@
-import mysql.connector.pooling
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 from app.common.config.config import settings
-from app.common.logger.logger import get_logger
 
-logger = get_logger(__name__)
+SQLALCHEMY_DATABASE_URL = f"mysql+mysqlconnector://{settings.db_user}:{settings.db_password}@{settings.db_host}/{settings.db_name}"
 
-try:
-    db_pool = mysql.connector.pooling.MySQLConnectionPool(
-        pool_name="employee_pool",
-        pool_size=settings.db_pool_size,
-        host=settings.db_host,
-        user=settings.db_user,
-        password=settings.db_password,
-        database=settings.db_name
-    )
-    logger.info("Database connection pool initialized successfully.")
-except Exception as e:
-    logger.error(f"FATAL: Could not initialize database pool: {e}")
-    raise e
+engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_size=settings.db_pool_size)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

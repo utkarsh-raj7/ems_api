@@ -1,63 +1,68 @@
+
 from app.common.logger.logger import get_logger
+from app.common.constant.error_code import ErrorCode
 from app.common.security.security import get_password_hash
-from app.common.errors.custom_errors import ResourceNotFoundException, DuplicateEmailException
+from app.repository.entity.employee_entity import EmployeeEntity
 from app.repository.employee_repository import EmployeeRepository
-from app.application.model.query_model import EmployeeQueryParams
-from app.application.model.employee_model import EmployeeCreate, EmployeeUpdate
+from app.application.model.query_model import EmployeeQueryParams, PaginatedResponse
+from app.application.model.employee_response_model import GetEmployeeResponseModel
+from app.common.error.custom_error import EmployeeNotFoundException, DuplicateEmailException
+from app.application.model.employee_request_model import CreateEmployeeRequestModel, UpdateEmployeeRequestModel
 
 logger = get_logger(__name__)
 
 class EmployeeService:
-    def __init__(self, *, repository: EmployeeRepository):
+    def __init__(self, repository: EmployeeRepository):
         self.repository = repository
         
-    def create(self, *, data: EmployeeCreate) -> int:
-        existing = self.repository.get_by_email(email=data.email)
-        if existing:
-            raise DuplicateEmailException(message="This email is already registered.")
-        try:
-            hashed_password = get_password_hash(data.password)
-        except Exception as e:
-            logger.critical(f"Crytography failure during user registration: {e}")
-            raise Exception("Internal server error during registration.")
+    def create(self, data: CreateEmployeeRequestModel) -> GetEmployeeResponseModel:
+        self._ensure_email_is_unique(data.email)
+        hashed_password = get_password_hash(data.password)
+        entity = self.repository.create(data, hashed_password)
+        return GetEmployeeResponseModel.model_validate(entity)
     
-        return self.repository.create(data=data, hashed_password=hashed_password)
+    def get_by_id(self, id: int):
+        entity = self._get_existing_employee(id)  
+        return GetEmployeeResponseModel.model_validate(entity) 
     
-        
-    def list(self, *,  params: EmployeeQueryParams):
+    def list(self, params: EmployeeQueryParams) -> PaginatedResponse:
         offset = (params.page - 1)* params.limit
-        active_filters = params.model_dump(exclude_none=True, exclude={"page","limit"})
-        data, total_count = self.repository.list(limit=params.limit, offset=offset, filters=active_filters)
+        results, total = self.repository.list(
+            limit=params.limit,
+            offset=offset,
+            filters=params
+        )
         
-        return {
-            "data": data,
-            "total_count" : total_count,
-            "page": params.page,
-            "limit": params.limit
-        }
+        return PaginatedResponse( 
+            data=[GetEmployeeResponseModel.model_validate(e) for e in results],
+            total_count=total,
+            page=params.page,
+            limit=params.limit
+        )
     
-    
-    def get_by_id(self, *, id: int):
-        employee = self.repository.get_by_id(id=id)
-        
-        if not employee:
-            raise ResourceNotFoundException(message = f"Employee with ID {id} not found.")
-
-        return employee
-    
-    
-    def get_by_email(self, *, email: str):
-        return self.repository.get_by_email(email=email)
-         
-    
-    def update(self, *, id: int, data: EmployeeUpdate):
-        self.get_by_id(id=id)
-        self.repository.update(id=id, data=data)
+    def update(self, id: int, data: UpdateEmployeeRequestModel, current_user: EmployeeEntity) -> None:
+        existing_employee = self._get_existing_employee(id)
+        if data.email and data.email != existing_employee.email:
+            self._ensure_email_is_unique(data.email)
+        self.repository.update(id, data, current_user.email)
         
     
-    def delete(self, *, id: int):
-        self.get_by_id(id=id)
-        self.repository.delete(id=id)
+    def delete(self, id: int) -> None:
+        self.get_by_id(id)
+        self.repository.delete(id)
             
+            
+    def _get_existing_employee(self, id: int):
+        entity = self.repository.get_by_id(id)
+        if not entity:
+            raise EmployeeNotFoundException(
+                message = f"Employee {id} not found.",
+                error_code=ErrorCode.EMPLOYEE_NOT_FOUND
+            )
+        return entity
+    
+    
+    def _ensure_email_is_unique(self, email: str):
+        return self.repository.get_by_email(email)
             
         

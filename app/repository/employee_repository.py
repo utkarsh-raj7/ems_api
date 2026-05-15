@@ -1,181 +1,84 @@
-import mysql.connector
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import  SQLAlchemyError
 from app.common.logger.logger import get_logger
-from app.common.errors.custom_errors import DatabaseOperationError
-from app.application.model.employee_model import EmployeeCreate, EmployeeUpdate
+from app.common.constant.error_code import ErrorCode
+from app.repository.entity.employee_entity import EmployeeEntity
+from app.common.error.db_decorators import _handle_db_exceptions
+from app.common.error.custom_error import DatabaseOperationError
+from app.application.model.query_model import EmployeeQueryParams
+from app.application.model.employee_request_model import CreateEmployeeRequestModel, UpdateEmployeeRequestModel
 
 logger = get_logger(__name__)
 
 class EmployeeRepository:
-    def __init__(self, db_pool):
-        self.db_pool = db_pool
-        
-    def list(self, *, limit: int, offset: int, filters: dict):
-        connection = None
-        cursor = None
-        try:
-            connection = self.db_pool.get_connection()
-            cursor = connection.cursor(dictionary=True)
-            
-            base_where = " FROM employee WHERE 1=1"
-            query_params = []
-            if "name" in filters:
-                base_where += " AND (first_name LIKE %s OR last_name LIKE %s)"
-                query_params.extend([f"%{filters['name']}%", f"%{filters['name']}"])
-                
-            if filters.get("department"):
-                base_where += " AND department = %s"
-                query_params.append(filters["department"])
-                
-            count_query = "SELECT COUNT(*) as total" + base_where
-            cursor.execute(count_query, tuple(query_params))
-            total_count = cursor.fetchone()["total"]
-            
-            data_query = "SELECT id, first_name, last_name, email, department, role" + base_where + " LIMIT %s OFFSET %s"
-            
-            data_params = query_params.copy()
-            data_params.extend([limit, offset])
-            
-            cursor.execute(data_query, tuple(data_params))
-            data = cursor.fetchall()
-            
-            return data, total_count
-        
-        except mysql.connector.Error as e:
-            logger.error(f"My sql crashed during list: {e}")
-            raise DatabaseOperationError(message = "Failed to retrieve employee from the database.")
-        
-        finally:
-            if cursor:
-                cursor.close()
-            if connection:
-                connection.close()
-            
-    def get_by_id (self, *, id: int):
-        connection = None
-        cursor = None
-        try:
-            connection = self.db_pool.get_connection()
-            cursor = connection.cursor(dictionary=True)
-            sql_query = "SELECT id, first_name, last_name, email, department FROM employee WHERE id = %s"
-            cursor.execute(sql_query, (id,))
-            row = cursor.fetchone()
-            return row
-        
-        except mysql.connector.Error as e:
-            logger.error(f"My sql crashed during get_by_id: {e}")
-            raise DatabaseOperationError(message = f"Failed to retrieve employee {id}.")
-        
-        finally:
-            if cursor:
-                cursor.close()
-            if connection:
-                connection.close()
-                
-    def get_by_email(self, *, email: str):
-        connection = None
-        cursor = None
-        try:
-            connection = self.db_pool.get_connection()
-            cursor = connection.cursor(dictionary=True)
-            sql_query = "SELECT id, first_name, last_name, email, department, password_hash FROM employee WHERE email = %s"
-            cursor.execute(sql_query, (email,))
-            row = cursor.fetchone()
-            return row
-        except mysql.connector.Error as e:
-            logger.error(f"MySQL crashed during get_by_email: {e}")
-            raise DatabaseOperationError(message = f"Failed to retrieve employee by email: {email}")
-        finally:
-            if cursor:
-                cursor.close()
-            if connection:
-                connection.close()
-            
-        
-    def create(self, *, data: EmployeeCreate, hashed_password: str):
-        connection = None
-        cursor = None
-        try:
-            connection = self.db_pool.get_connection()
-            cursor = connection.cursor(prepared=True)
-            
-            sql_query ="""
-            INSERT INTO employee (first_name, last_name, email, department, password_hash)
-            Values (%s, %s, %s, %s, %s)
-            """
-        
-            values = (
-                data.first_name,
-                data.last_name,
-                data.email,
-                data.department,
-                hashed_password
-            )
-
-            cursor.execute(sql_query, values)
-            connection.commit()
-            
-            new_id = cursor.lastrowid
-            return new_id
-        
-        except mysql.connector.Error as e:
-            logger.error(f"Database error while creating employee: {e}")
-            raise DatabaseOperationError(message = "Failed to create employee.")
-        
-        finally:
-            if cursor: 
-                cursor.close()
-            if connection:
-                connection.close() 
-                
-    def update(self, *, id: int, data: EmployeeUpdate):
-        connection = None
-        cursor = None
-        try:
-            connection = self.db_pool.get_connection()
-            cursor = connection.cursor(prepared=True)
-            
-            fields_to_update = data.model_dump(exclude_unset=True)
-            if not fields_to_update: return
-            
-            set_clauses =[]
-            values = []
-            
-            for column, value in fields_to_update.items():
-                set_clauses.append(f"{column} = %s")
-                values.append(value)
-            
-            set_string = ", ".join(set_clauses)
-            values.append(id)
-                
-            sql_query = f"UPDATE employee SET {set_string} WHERE id = %s"
-            
-            cursor.execute(sql_query, tuple(values))
-            connection.commit()
-            
-        except mysql.connector.Error as e:
-            logger.error(f"MySQL  error during update: {e}")
-            raise DatabaseOperationError(message = f"Failed to update employee {id}.")
-        finally:
-            if cursor: cursor.close()
-            if connection: connection.close()
+    def __init__(self, db: Session):
+        self.db = db
     
-    def delete(self, *, id: int):
-        connection = None
-        cursor = None
-        try:
-            connection = self.db_pool.get_connection()
-            cursor = connection.cursor(prepared=True)
+    @_handle_db_exceptions   
+    def get_by_id(self, id: int) -> EmployeeEntity | None:
+        return self.db.query(EmployeeEntity).filter(EmployeeEntity.id == id).first()
+ 
+    @_handle_db_exceptions
+    def get_by_email(self, email:str) -> EmployeeEntity | None:
+        return self.db.query(EmployeeEntity).filter(EmployeeEntity.email == email).first()
+                
+    @_handle_db_exceptions
+    def list(self, limit: int, offset: int, filters: EmployeeQueryParams):
+        query = self.db.query(EmployeeEntity)
             
-            sql_query = "DELETE FROM employee WHERE id = %s"
-            cursor.execute(sql_query, (id,))
-            connection.commit()
+        if filters.name: 
+            search_term = f"%{filters.name}%"
+            query = query.filter(
+                or_(
+                    EmployeeEntity.first_name.ilike(search_term),
+                    EmployeeEntity.last_name.ilike(search_term),
+                    func.concat(EmployeeEntity.first_name, ' ', EmployeeEntity.last_name).ilike(search_term)
+                )
+            )
+        if filters.department:
+            query = query.filter(EmployeeEntity.department == filters.department)
+        if filters.phone:
+            query = query.filter(EmployeeEntity.phone == filters.phone)
+        if filters.role:
+            query = query.filter(EmployeeEntity.role == filters.role.value)
             
-        except mysql.connector.Error as e:
-            logger.error(f"MySQL crash during delete: {e}")
-            raise DatabaseOperationError(message = f"Failed to delete employee {id}.")
-        finally:
-            if cursor: cursor.close()
-            if connection: connection.close()
+        total = query.count()
+
+        results = query.offset(offset).limit(limit).all()
         
+        return results, total
+        
+    @_handle_db_exceptions
+    def create(self, data: CreateEmployeeRequestModel, hashed_password: str) -> EmployeeEntity:
+        entity = EmployeeEntity(
+            first_name=data.first_name,
+            last_name=data.last_name,
+            email=data.email,
+            password_hash=hashed_password,
+            department=data.department,
+            phone=data.phone
+        )
+        self.db.add(entity)
+        self.db.commit()
+        self.db.refresh(entity)
+        return entity
+    
+    @_handle_db_exceptions
+    def update(self, id: int, data: UpdateEmployeeRequestModel, modified_by: str) -> None:
+        update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+        if not update_data:
+            return
+        update_data["modified_by"] = modified_by
+        self.db.query(EmployeeEntity).filter(EmployeeEntity.id == id).update(update_data)
+        self.db.commit()
+        
+    @_handle_db_exceptions
+    def delete(self, id: int) -> None:
+        self.db.query(EmployeeEntity).filter(EmployeeEntity.id == id).delete()
+        self.db.commit()
+                
+
             
-            
+        
+    

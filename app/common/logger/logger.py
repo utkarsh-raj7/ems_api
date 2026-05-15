@@ -4,7 +4,7 @@ import sys
 def get_logger(name: str):
     logger = logging.getLogger(name)
     if not logger.handlers:
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.WARNING)
         formatter = logging.Formatter(
             "{asctime} - {name} - {levelname} - {message}",
             style="{",

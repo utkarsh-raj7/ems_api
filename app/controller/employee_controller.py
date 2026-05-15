@@ -1,48 +1,49 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.dependencies import get_employee_service
+from fastapi import APIRouter, Depends, status
+from app.dependencies import EmployeeServiceDep, CurrentUser, AdminUser, ManagerUser
 from app.application.service.employee_service import EmployeeService
-from app.application.model.employee_model import EmployeeCreate, EmployeeResponse, EmployeeUpdate
+from app.application.model.employee_request_model import CreateEmployeeRequestModel, UpdateEmployeeRequestModel
 from app.application.model.query_model import EmployeeQueryParams, PaginatedResponse
+from app.application.model.employee_response_model import GetEmployeeResponseModel
 
 router = APIRouter(prefix ="/employee", tags=["Employee"])
-    
-@router.get("/", response_model=PaginatedResponse, status_code=status.HTTP_200_OK)
-def list_all(
-    params: EmployeeQueryParams = Depends(),
-    service: EmployeeService = Depends(get_employee_service)
-):
-    return service.list(params=params)
-
-@router.get("/{id}", response_model=EmployeeResponse, status_code=status.HTTP_200_OK)
-def get_by_id(
-    id: int,
-    service: EmployeeService = Depends(get_employee_service)
-):
-    return service.get_by_id(id=id)
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create(
-    request_data: EmployeeCreate,
-    service: EmployeeService = Depends(get_employee_service)
-):
-    new_id = service.create(data=request_data)
-    return {"message": "Employee created successfully", "id": new_id}
+    data: CreateEmployeeRequestModel,
+    service: EmployeeServiceDep,
+    current_user: AdminUser ):
+    return service.create(data)
 
-@router.put("/{id}", response_model=dict, status_code=status.HTTP_200_OK)
+@router.get("/{id}", response_model=GetEmployeeResponseModel, status_code=status.HTTP_200_OK)
+def get_by_id(
+    id: int,
+    service: EmployeeServiceDep,
+    current_user: CurrentUser ):
+    return service.get_by_id(id)
+    
+@router.get("/", response_model=PaginatedResponse, status_code=status.HTTP_200_OK)
+def list(
+    service: EmployeeServiceDep,
+    current_user: CurrentUser,
+    params: EmployeeQueryParams = Depends()
+):
+    return service.list(params)
+
+
+@router.put("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def update(
     id : int,
-    request_data: EmployeeUpdate,
-    service: EmployeeService = Depends(get_employee_service)
+    data: UpdateEmployeeRequestModel,
+    service: EmployeeServiceDep,
+    current_user: ManagerUser
 ):
-    service.update(id=id, data=request_data)
-    return {"message": f"Employee {id} updated successfully"}
+    service.update(id, data, current_user)
 
-@router.delete("/{id}", response_model=dict, status_code=status.HTTP_200_OK)
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(
     id: int,
-    service: EmployeeService = Depends(get_employee_service)
+    service: EmployeeServiceDep,
+    current_user: AdminUser
 ):
-    service.delete(id=id)
-    return {"message": f"Employee {id} deleted successfully"}
 
+    service.delete(id)
