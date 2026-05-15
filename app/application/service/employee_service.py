@@ -16,7 +16,7 @@ class EmployeeService:
         self.repository = repository
         
     def create(self, data: CreateEmployeeRequestModel) -> GetEmployeeResponseModel:
-        self._ensure_email_is_unique(data.email)
+        self._check_email_is_unique(data.email)
         hashed_password = get_password_hash(data.password)
         entity = self.repository.create(data, hashed_password)
         return GetEmployeeResponseModel.model_validate(entity)
@@ -64,5 +64,13 @@ class EmployeeService:
     
     def _ensure_email_is_unique(self, email: str):
         return self.repository.get_by_email(email)
+    
+    
+    def _check_email_is_unique(self, email: str) -> None:
+        if self.repository.get_by_email(email):
+            raise DuplicateEmailException(
+                message=f"The email {email} is already in use.",
+                error_code=ErrorCode.DUPLICATE_EMAIL
+            )  
             
         

@@ -2,7 +2,8 @@
 from typing import Annotated, List
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session #type =ignore
+
 
 from app.common.constant.role import Role
 from app.repository.database import get_db

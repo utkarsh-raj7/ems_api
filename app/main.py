@@ -1,7 +1,7 @@
 from fastapi import FastAPI,status
 from app.controller.employee_controller import router as employee_router
 from app.controller.auth_controller import router as auth_router
-from app.common.error.error_handlers import register_error_handlers
+from app.common.error.error_handler import register_error_handlers
 
 
 app = FastAPI(

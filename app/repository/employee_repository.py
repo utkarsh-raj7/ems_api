@@ -4,7 +4,7 @@ from sqlalchemy.exc import  SQLAlchemyError
 from app.common.logger.logger import get_logger
 from app.common.constant.error_code import ErrorCode
 from app.repository.entity.employee_entity import EmployeeEntity
-from app.common.error.db_decorators import _handle_db_exceptions
+from app.common.error.db_decorator import _handle_db_exceptions
 from app.common.error.custom_error import DatabaseOperationError
 from app.application.model.query_model import EmployeeQueryParams
 from app.application.model.employee_request_model import CreateEmployeeRequestModel, UpdateEmployeeRequestModel
