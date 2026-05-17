@@ -1,24 +1,21 @@
 
-from app.common.logger.logger import get_logger
 from app.common.constant.error_code import ErrorCode
 from app.common.security.security import get_password_hash
 from app.repository.entity.employee_entity import EmployeeEntity
 from app.repository.employee_repository import EmployeeRepository
-from app.application.model.query_model import EmployeeQueryParams, PaginatedResponse
+from app.application.model.query_model import EmployeeQueryParams, PaginatedResponse, EmployeeFilters
 from app.application.model.employee_response_model import GetEmployeeResponseModel
 from app.common.error.custom_error import EmployeeNotFoundException, DuplicateEmailException
 from app.application.model.employee_request_model import CreateEmployeeRequestModel, UpdateEmployeeRequestModel
-
-logger = get_logger(__name__)
 
 class EmployeeService:
     def __init__(self, repository: EmployeeRepository):
         self.repository = repository
         
-    def create(self, data: CreateEmployeeRequestModel) -> GetEmployeeResponseModel:
+    def create(self, data: CreateEmployeeRequestModel, current_user:EmployeeEntity) -> GetEmployeeResponseModel:
         self._check_email_is_unique(data.email)
         hashed_password = get_password_hash(data.password)
-        entity = self.repository.create(data, hashed_password)
+        entity = self.repository.create(data, hashed_password, current_user.email)
         return GetEmployeeResponseModel.model_validate(entity)
     
     def get_by_id(self, id: int):
@@ -26,14 +23,15 @@ class EmployeeService:
         return GetEmployeeResponseModel.model_validate(entity) 
     
     def list(self, params: EmployeeQueryParams) -> PaginatedResponse:
-        offset = (params.page - 1)* params.limit
-        results, total = self.repository.list(
-            limit=params.limit,
-            offset=offset,
-            filters=params
+        offset = (params.page - 1) * params.limit
+        filters = EmployeeFilters(
+            name=params.name,
+            department=params.department,
+            phone=params.phone,
+            role=params.role
         )
-        
-        return PaginatedResponse( 
+        results, total = self.repository.list(limit=params.limit, offset=offset, filters=filters)
+        return PaginatedResponse(
             data=[GetEmployeeResponseModel.model_validate(e) for e in results],
             total_count=total,
             page=params.page,
@@ -43,7 +41,7 @@ class EmployeeService:
     def update(self, id: int, data: UpdateEmployeeRequestModel, current_user: EmployeeEntity) -> None:
         existing_employee = self._get_existing_employee(id)
         if data.email and data.email != existing_employee.email:
-            self._ensure_email_is_unique(data.email)
+            self.repository.get_by_email(data.email)
         self.repository.update(id, data, current_user.email)
         
     
@@ -60,10 +58,6 @@ class EmployeeService:
                 error_code=ErrorCode.EMPLOYEE_NOT_FOUND
             )
         return entity
-    
-    
-    def _ensure_email_is_unique(self, email: str):
-        return self.repository.get_by_email(email)
     
     
     def _check_email_is_unique(self, email: str) -> None:

@@ -17,3 +17,9 @@ class PaginatedResponse(BaseModel):
     total_count: int
     page: int
     limit: int
+    
+class EmployeeFilters(BaseModel):
+    name: str | None = None
+    department: str | None = None
+    phone: str | None = None
+    role: Role | None = None

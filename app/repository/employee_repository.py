@@ -6,7 +6,7 @@ from app.common.constant.error_code import ErrorCode
 from app.repository.entity.employee_entity import EmployeeEntity
 from app.common.error.db_decorator import _handle_db_exceptions
 from app.common.error.custom_error import DatabaseOperationError
-from app.application.model.query_model import EmployeeQueryParams
+from app.application.model.query_model import EmployeeQueryParams, EmployeeFilters
 from app.application.model.employee_request_model import CreateEmployeeRequestModel, UpdateEmployeeRequestModel
 
 logger = get_logger(__name__)
@@ -24,7 +24,7 @@ class EmployeeRepository:
         return self.db.query(EmployeeEntity).filter(EmployeeEntity.email == email).first()
                 
     @_handle_db_exceptions
-    def list(self, limit: int, offset: int, filters: EmployeeQueryParams):
+    def list(self, limit: int, offset: int, filters: EmployeeFilters):
         query = self.db.query(EmployeeEntity)
             
         if filters.name: 
@@ -50,14 +50,16 @@ class EmployeeRepository:
         return results, total
         
     @_handle_db_exceptions
-    def create(self, data: CreateEmployeeRequestModel, hashed_password: str) -> EmployeeEntity:
+    def create(self, data: CreateEmployeeRequestModel, hashed_password: str,  created_by: str | None) -> EmployeeEntity:
         entity = EmployeeEntity(
             first_name=data.first_name,
             last_name=data.last_name,
             email=data.email,
+            phone=data.phone,
+            role = data.role.value,
             password_hash=hashed_password,
             department=data.department,
-            phone=data.phone
+            created_by = created_by
         )
         self.db.add(entity)
         self.db.commit()
@@ -69,8 +71,11 @@ class EmployeeRepository:
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
         if not update_data:
             return
+        if "role" in update_data and hasattr(update_data["role"], "value"):
+            update_data["role"] = update_data["role"].value
         update_data["modified_by"] = modified_by
-        self.db.query(EmployeeEntity).filter(EmployeeEntity.id == id).update(update_data)
+        self.db.query(EmployeeEntity).filter(EmployeeEntity.id == id).update(update_data) # type: ignore[arg-type]
+        self.db.commit()
         self.db.commit()
         
     @_handle_db_exceptions
