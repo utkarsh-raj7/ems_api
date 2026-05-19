@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastapi-ingress
+  namespace: enterprise-apps
+spec:
+  ingressClassName : nginx
+  rules:
+    - host: ems.192.168.49.2.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ems-api
+                port:
+                  number: 80
+    - http:        
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ems-api
+                port:
+                  number: 80

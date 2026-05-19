@@ -1,0 +1,29 @@
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Kubernetes manifests (not needed inside the application container)
+k8s/
+
+# Local environment variables
+.env
+
+# Git repositories
+.git/
+.gitignore
+
+# Documentation and meta files
+readme.md
+
+# IDEs and OS specific files
+.vscode/
+.idea/
+.DS_Store
+__MACOSX/

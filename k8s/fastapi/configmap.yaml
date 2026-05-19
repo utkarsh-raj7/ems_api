@@ -1,0 +1,12 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: fastapi-config
+  namespace: enterprise-apps
+data:
+  DB_HOST: "mysql-service"
+  DB_USER: "ems_user"
+  DB_NAME: "employees"
+  DB_POOL_SIZE: "5"
+  ALGORITHM: "HS256"
+  TOKEN_EXPIRE_MINUTES: "30"
