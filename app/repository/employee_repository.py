@@ -1,3 +1,4 @@
+from enum import Enum
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import  SQLAlchemyError
@@ -41,7 +42,7 @@ class EmployeeRepository:
         if filters.phone:
             query = query.filter(EmployeeEntity.phone == filters.phone)
         if filters.role:
-            query = query.filter(EmployeeEntity.role == filters.role.value)
+            query = query.filter(EmployeeEntity.role == filters.role)
             
         total = query.count()
 
@@ -58,7 +59,7 @@ class EmployeeRepository:
             phone=data.phone,
             role = data.role.value,
             password_hash=hashed_password,
-            department=data.department,
+            department=data.department.value if data.department else None,
             created_by = created_by
         )
         self.db.add(entity)
@@ -71,11 +72,11 @@ class EmployeeRepository:
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
         if not update_data:
             return
-        if "role" in update_data and hasattr(update_data["role"], "value"):
-            update_data["role"] = update_data["role"].value
+        for key, value in update_data.items():
+            if isinstance(value, Enum):
+                update_data[key] = value.value
         update_data["modified_by"] = modified_by
         self.db.query(EmployeeEntity).filter(EmployeeEntity.id == id).update(update_data) # type: ignore[arg-type]
-        self.db.commit()
         self.db.commit()
         
     @_handle_db_exceptions

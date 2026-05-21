@@ -2,6 +2,7 @@
 from app.repository.database import engine, SessionLocal
 from app.repository.entity.employee_entity import Base, EmployeeEntity
 from app.common.constant.role import Role
+from app.common.constant.department import Department
 from app.common.security.security import get_password_hash
 
 
@@ -21,7 +22,7 @@ def seed_admin(db) -> None:
         last_name="Admin",
         email="admin@company.com",
         phone="+910000000000",
-        department="Management",
+        department=Department.ENGINEERING.value,
         role=Role.ADMIN.value,
         password_hash=get_password_hash("Admin@123!"),
         created_by=None,

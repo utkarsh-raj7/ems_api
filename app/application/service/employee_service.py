@@ -26,9 +26,9 @@ class EmployeeService:
         offset = (params.page - 1) * params.limit
         filters = EmployeeFilters(
             name=params.name,
-            department=params.department,
+            department=params.department if params.department else None,
             phone=params.phone,
-            role=params.role
+            role=params.role.value if params.role else None
         )
         results, total = self.repository.list(limit=params.limit, offset=offset, filters=filters)
         return PaginatedResponse(
@@ -41,12 +41,12 @@ class EmployeeService:
     def update(self, id: int, data: UpdateEmployeeRequestModel, current_user: EmployeeEntity) -> None:
         existing_employee = self._get_existing_employee(id)
         if data.email and data.email != existing_employee.email:
-            self.repository.get_by_email(data.email)
+            self._check_email_is_unique(data.email)
         self.repository.update(id, data, current_user.email)
         
     
     def delete(self, id: int) -> None:
-        self.get_by_id(id)
+        self._get_existing_employee(id)
         self.repository.delete(id)
             
             

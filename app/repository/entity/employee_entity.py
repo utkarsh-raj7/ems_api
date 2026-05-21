@@ -14,7 +14,7 @@ class EmployeeEntity(Base):
     last_name: Mapped[str] = mapped_column(String(50))
     phone: Mapped[str] = mapped_column(String(20), nullable=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
-    department: Mapped[str] = mapped_column(String(50))
+    department: Mapped[str] = mapped_column(String(50), nullable=True, default=None)
     role: Mapped[str] = mapped_column(String(100), nullable=True, default=Role.STAFF)
     password_hash: Mapped[str] = mapped_column(String(255))
 

@@ -1,6 +1,7 @@
 import re
 from typing import Any
 from app.common.constant.role import Role
+from app.common.constant.department import Department
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from app.application.model.validator_function import (
     strip_all_strings, 
@@ -32,7 +33,7 @@ class CreateEmployeeRequestModel(EmployeeBaseModel):
     last_name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
     phone: str
-    department: str
+    department: Department | None = None
     role: Role = Field(default=Role.STAFF)
     password: str = Field(..., min_length=12)
     
@@ -48,6 +49,6 @@ class UpdateEmployeeRequestModel(EmployeeBaseModel):
     last_name: str | None = Field(None, min_length=1, max_length=50)
     email: EmailStr | None = None
     phone: str | None = None
-    department: str | None = None
+    department: Department | None = None
     role: Role | None = None
     

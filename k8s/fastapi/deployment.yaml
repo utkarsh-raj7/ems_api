@@ -62,6 +62,6 @@ spec:
     app: ems-fastapi
   type: ClusterIP
   ports:
-    - port: 80
+    - port: 8080
       targetPort: ems-port
 

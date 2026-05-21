@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session #type =ignore
 
 
 from app.common.constant.role import Role
+from app.common.constant.department import Department
 from app.repository.database import get_db
 from app.common.constant.error_code import ErrorCode
 from app.common.error.custom_error import PermissionDeniedError, UnauthorizedException
